@@ -3,14 +3,9 @@
 A fixed-size object pool with an intrusive freelist. Header-only, C++17, no deps.
 
 ```
-+---------+---------+---------+---------+
-| slot 0  | slot 1  | slot 2  |  ...    |   N slots, one contiguous block
-+---------+---------+---------+---------+
-     |
-     v
-+-----+    +-----+    +-----+
-|  #2 |--->|  #0 |--->|  #4 |---> nullptr   free_head
-+-----+    +-----+    +-----+
+[free] --alloc()--> [in use] --free()--> [free]
+   |                   |                    |
+holds next*         holds a T          holds next* again
 ```
 
 ## What it does
@@ -27,6 +22,28 @@ A fixed-size object pool with an intrusive freelist. Header-only, C++17, no deps
 - It does **not** construct or destroy objects. It manages storage;
   you place objects with `construct()` or placement new.
 
+## API
+
+| Method | Description |
+|--------|-------------|
+| `alloc()` | Return raw storage for one T, or `nullptr` if full |
+| `free(void*)` | Return storage to the pool (does NOT run dtor) |
+| `construct(Args...)` | `alloc()` + placement-new; returns `T*` or `nullptr` |
+| `destroy(T*)` | Run dtor + `free()` |
+| `capacity()` | `N` |
+| `in_use()` | slots currently allocated |
+| `available()` | `N - in_use()` |
+| `empty()` / `full()` | predicates |
+
+## Tradeoffs
+
+- Memory is not returned to the OS until the pool is destroyed.
+  You trade RSS for speed.
+- Fixed capacity means you must size the pool for peak usage.
+  Over-provision if unsure.
+- No thread safety. For thread-local pooling, see
+  [fastalloc](https://github.com/HadeShiki/fastalloc).
+
 ## Usage
 
 ```cpp
@@ -39,14 +56,20 @@ auto* p = pp.construct(1.0f, 2.0f, /*id=*/1);
 pp.destroy(p);
 ```
 
+## Requirements
+
+- C++17 (g++ 7+, clang++ 5+, MSVC 2017 15.7+)
+- GNU make
+
 ## Build
 
 ```sh
-make          # demo
-make test     # tests
-make clean
+make          # build demo + tests
+make test     # run tests
+make run      # run demo
+make clean    # remove build/
 ```
 
 ## License
 
-License See [License](License) for details.
+MIT. See [LICENSE](LICENSE) for details.
